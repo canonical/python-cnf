@@ -1,3 +1,5 @@
+tmp/
 dist/
-py_cnf.egg-info/
-python_cnf.egg-info/
+build/
+*.egg-info/
+*/__pycache__/

@@ -5,9 +5,11 @@
 - `cnfembed` - Text-preserving cnf to json, a single file for embedding.
 - `cnftest` - Harness to run the conformance tests.
 
+
 ## Specification
 
 Consult the [full specification](https://github.com/canonical/cnf) for examples and details of the format.
+
 
 ## Running tests
 
