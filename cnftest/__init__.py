@@ -1,0 +1,26 @@
+# Copyright 2026 Canonical Inc.
+# Originally by Gustavo Niemeyer.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""cnftest: the harness to run the cnf conformance corpus."""
+
+from .corpus import Case, Data, Directive, Reformat, Topic, read_all
+from .match import expand_vars, match_error
+from .runner import DIRECTIONS, Harness, Skip, tests
+
+__all__ = [
+    "Case", "Data", "Directive", "Harness", "Reformat", "Skip",
+    "Topic", "DIRECTIONS", "expand_vars", "match_error", "read_all",
+    "tests",
+]
