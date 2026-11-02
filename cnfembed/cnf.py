@@ -114,10 +114,28 @@ def _err_at_scan(pos, text, scan_err):
     return _err_at(_Pos(line, col), scan_err.msg)
 
 
-def _key_path(path):
-    """Spell a key path for an error: segments in backquotes."""
+def _quote_key_path(path):
+    """Spell a key path for an error: dot-joined segments in backquotes.
+
+    A lone segment is one key: it takes its own quoting, no
+    backticks around it.
+    """
+    if len(path) == 1:
+        return _quote_key(path[0])
     parts = [_quote(k.key, k.quote) for k in path]
     return "`" + ".".join(parts) + "`"
+
+
+def _quote_key(seg):
+    """Spell one key segment for an error message.
+
+    A key is a string however it was spelled, so the forced
+    quoting spells it: a bare word escalates to double-quoted,
+    a quoted one keeps its recorded family.
+    """
+    if seg.quote == _UNQUOTED and _is_bare_word(seg.key):
+        return '"' + _escape_cnf(seg.key) + '"'
+    return _quote(seg.key, seg.quote)
 
 
 def _quote(s, q):
@@ -184,7 +202,7 @@ def _walk(scope, path):
             node = _KeyNode(seg.key, seg.quote, seg.pos, sub=[])
             scope.sub.append(node)
         elif node.json != "" or node.is_list:
-            return None, _err_at(seg.pos, f"cannot redefine previous key `{node.key}`")
+            return None, _err_at(seg.pos, "cannot redefine previous key " + _quote_key(node))
         scope = node
     return scope, None
 
@@ -196,7 +214,7 @@ def _define(scope, path, val):
         return err
     tip = path[-1]
     if parent.find(tip.key) is not None:
-        return _redefine_path(path)
+        return _redefine_path(tip)
     parent.sub.append(_KeyNode(tip.key, tip.quote, tip.pos,
                               json=val.json, is_list=val.is_list, sub=val.sub))
     return None
@@ -213,20 +231,20 @@ def _expand(scope, path):
         node = _KeyNode(tip.key, tip.quote, tip.pos, sub=[])
         parent.sub.append(node)
     elif node.json != "" or node.is_list:
-        return None, _redefine_path(path)
+        return None, _redefine_path(tip)
     elif node.expanded:
-        return None, _expand_path_err(path)
+        return None, _expand_path_err(tip)
     node.expanded = True
     return node, None
 
 
-def _redefine_path(path):
-    return _err_at(path[0].pos, "cannot redefine previous key " + _key_path(path))
+def _redefine_path(seg):
+    return _err_at(seg.pos, "cannot redefine previous key " + _quote_key(seg))
 
 
-def _expand_path_err(path):
-    return _err_at(path[0].pos,
-                   "cannot expand map key " + _key_path(path) + " more than once")
+def _expand_path_err(seg):
+    return _err_at(seg.pos,
+                   "cannot expand map key " + _quote_key(seg) + " more than once")
 
 
 def _wrap_path(path, val):
@@ -340,7 +358,13 @@ def _parse(data):
         text = data.decode()
     except UnicodeDecodeError as err:
         return None, _invalid_utf8(data)
-    return _Parser(_split_lines(text))._parse_top()
+    parser = _Parser(_split_lines(text))
+    root, err = parser._parse_top()
+    if err is not None:
+        return None, err
+    if parser.first is not None:
+        return None, parser.first
+    return root, parser.first
 
 
 def _invalid_utf8(data):
@@ -373,6 +397,12 @@ class _Parser:
         self.lines = lines
         self.pos = 0
         self.pending = []  # comment and blank lines, not yet validated
+        self.first = None  # the first key conflict, reported once the document parses whole
+
+    def _save_err(self, err):
+        """Record the first key conflict, for the parse's end."""
+        if self.first is None:
+            self.first = err
 
     def _peek_struct(self, prefix):
         """The next structural line.
@@ -501,7 +531,7 @@ class _Parser:
         nxt, ok = self._peek_struct(ln.indent)
         if not ok or len(nxt.indent) <= len(ln.indent):
             return _err_at(_indent_pos(ln),
-                           "cannot omit the value for " + _key_path(path))
+                           "cannot omit the value for " + _quote_key_path(path))
         if _is_list_item(nxt.text):
             # A dashed block: a value defined under the path like
             # any other.
@@ -513,15 +543,20 @@ class _Parser:
                 return err
         else:
             # A block map: the path expands once, and its items read
-            # straight into the expansion.
+            # straight into the expansion. A conflict error is delayed
+            # so parsing issues have precedence.
             tip, err = _expand(scope, path)
             if err:
-                return err
+                self._save_err(err)
+                tip = _KeyNode(sub=[])
             return self._parse_map(tip, nxt.indent)
         val, err = self._parse_block_value(nxt)
         if err:
             return err
-        return _define(scope, path, val)
+        err = _define(scope, path, val)
+        if err:
+            self._save_err(err)
+        return None
 
     def _scan_pair_into(self, ln, scope, path, text):
         """A pair's inline value.
@@ -532,13 +567,17 @@ class _Parser:
         if text and text[0] == "{":
             tip, err = _expand(scope, path)
             if err:
-                return "", err
+                self._save_err(err)
+                tip = _KeyNode(sub=[])
             pt = _Pos(ln.num, len(ln.text) - len(text) + len(ln.indent) + 1)
             return self._scan_inline_map_into(ln, text, pt, tip)
         val, rest, err = self._scan_value_at(ln, text)
         if err:
             return "", err
-        return rest, _define(scope, path, val)
+        err = _define(scope, path, val)
+        if err:
+            self._save_err(err)
+        return rest, None
 
     def _parse_block_list(self, prefix):
         """One block list's "- item" lines at the exact prefix.
@@ -576,7 +615,7 @@ class _Parser:
                     # parseItem reports.
                     return None, _err_at(
                         _indent_pos(ln),
-                        "cannot omit the value for " + _key_path(path))
+                        "cannot omit the value for " + _quote_key_path(path))
             val, err = self._parse_inline(ln, text)
             if err:
                 return None, err
@@ -695,6 +734,8 @@ class _Parser:
             val, err = sub._parse_block_value(first)
             if err:
                 return None, err
+            # The element's own conflicts count too.
+            self._save_err(sub.first)
             if sub.pos != len(sub.lines):
                 # Content after the element's value.
                 return None, _err_at(_indent_pos(sub.lines[sub.pos]),

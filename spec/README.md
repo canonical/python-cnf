@@ -142,7 +142,7 @@ numbers:
 
 #### Python
 
-- [py-cnf](https://github.com/canonical/py-cnf) - Port of cnftest and cnfembed to Python.
+- [python-cnf](https://github.com/canonical/python-cnf) - Port of cnftest and cnfembed to Python.
 
 ## Background
 

@@ -18,6 +18,26 @@ copy of the spec kept for the tests. To run the tests:
 python3 -m unittest discover
 ```
 
+
+## Performance
+
+The following table offers a vague data point on the performance of the
+implementation. The benchmark was run using the data of a real yaml file
+with ~67k nodes in a diversified distribution totaling ~800kb. The same
+file was converted to cnf in the same structure, and also compact json.
+
+| Test                                     | Parser                | Best (ms) |  MB/s |
+|------------------------------------------|-----------------------|----------:|------:|
+| yaml => map (`safe_load`)                | YAML 1.2, pure Python |   1,441.7 |  0.53 |
+| cnf => map (`to_json` + `json.loads`)    | cnfembed, pure Python |     142.6 |  7.72 |
+| cnf => map (`ToJSON` + `json.Unmarshal`) | cnfembed, Go          |      23.4 | 47.24 |
+
+A conformant YAML 1.2 pure Python implementation was selected, not named
+here as this is just supposed to show that the performance is not so bad,
+even being a pure Python implementation, and even if we opt to translate
+first into json rather than doing a direct map decode.
+
+
 ## Example
 
 This simple example shows the conversion of cnf to json:
