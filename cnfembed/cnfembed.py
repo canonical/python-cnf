@@ -529,6 +529,8 @@ class _Parser:
                 return err
             return _trailing(ln, rest)
         nxt, ok = self._peek_struct(ln.indent)
+        if ok and ln.indent and not _same_indent_char(nxt.indent, ln.indent[0]):
+            return _err_at(_indent_pos(nxt), "cannot mix indentation prefixes")
         if not ok or len(nxt.indent) <= len(ln.indent):
             return _err_at(_indent_pos(ln),
                            "cannot omit the value for " + _quote_key_path(path))
