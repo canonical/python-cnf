@@ -1,4 +1,4 @@
-# Python implementation of the cnf format
+# Python support for the cnf format
 
 ## Packages
 
