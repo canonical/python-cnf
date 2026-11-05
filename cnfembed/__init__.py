@@ -15,6 +15,4 @@
 
 """cnfembed: a standalone single-file conformant cnf-to-json translator."""
 
-from .cnfembed import Error, Options, to_json
-
-__all__ = ["Error", "Options", "to_json"]
+from .cnfembed import *

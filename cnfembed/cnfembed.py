@@ -23,6 +23,9 @@ files but would rather not add an additional external dependency.
 
 import re
 
+# The public surface: what `from cnfembed import *` binds.
+__all__ = ["Error", "Options", "escape", "to_json"]
+
 
 class Options:
     """Reserved for future parse and render settings; none exist."""
