@@ -24,20 +24,19 @@ python3 -m unittest discover
 ## Performance
 
 The following table offers a vague data point on the performance of the
-implementation. The benchmark was run using the data of a real yaml file
-with ~67k nodes in a diversified distribution totaling ~800kb. The same
-file was converted to cnf in the same structure, and also compact json.
+implementation. It's as fair as I could make it: the two documents spell
+the same data in the same indentation shape. Both documents decode to the
+identical tree: 6721 maps, 11833 lists, 24605 scalars.
 
-| Test                                     | Parser                | Best (ms) |  MB/s |
-|------------------------------------------|-----------------------|----------:|------:|
-| yaml => map (`safe_load`)                | YAML 1.2, pure Python |   1,441.7 |  0.53 |
-| cnf => map (`to_json` + `json.loads`)    | cnfembed, pure Python |     142.6 |  7.72 |
-| cnf => map (`ToJSON` + `json.Unmarshal`) | cnfembed, Go          |      23.4 | 47.24 |
+| Test                                   | Parser                | Best (ms) |  MB/s |
+|----------------------------------------|-----------------------|----------:|------:|
+| yaml => map (`CSafeLoader`)            | pyyaml, libyaml C     |     105.1 | 10.73 |
+| yaml => map (`SafeLoader`)             | pyyaml, pure Python   |     988.5 |  1.14 |
+| cnf => json (`to_json`)                | cnfembed, pure Python |     238.3 |  7.10 |
+| cnf => map (`to_json` + `json.loads`)  | cnfembed, pure Python |     247.7 |  6.84 |
 
-A conformant YAML 1.2 pure Python implementation was selected, not named
-here as this is just supposed to show that the performance is not so bad,
-even being a pure Python implementation, and even if we opt to translate
-first into json rather than doing a direct map decode.
+The json decode comes almost for free in relative terms given that the
+format is much simpler and the stdlib one is written in C.
 
 
 ## Example
